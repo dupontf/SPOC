@@ -1,0 +1,21 @@
+#***********************************************************************
+#***********************************************************************
+#
+# macros
+#
+FFLAGS= -n32 -O3
+FC=f77
+
+my_fortran_compiler = ${FC} ${FFLAGS}
+my_executable_name = ../CFL
+my_source.f = check_cfl.f cfl.f cmal_s.f legendre2.f readgauss.f visu2.f
+SRC = ${my_source.f}
+OBJ = ${SRC:.f=.o}
+#
+# unix makefile instructions
+#
+$(my_executable_name):	${OBJ}
+	$(my_fortran_compiler) ${PARA} -o ${my_executable_name} ${OBJ}
+	
+#***********************************************************************
+#***********************************************************************

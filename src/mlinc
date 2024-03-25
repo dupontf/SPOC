@@ -1,0 +1,24 @@
+#***********************************************************************
+#***********************************************************************
+#
+# macros
+#
+#FFLAGS= -n32 -O3
+FFLAGS= -O2
+FC=pgf77
+
+my_fortran_compiler = ${FC} ${FFLAGS}
+my_executable_name = ../SPOC_LIN
+my_source.f = shw_cpu.f calvar_lin.f calflu.f mat1.f calb2.f cmal_s.f \
+legendre2.f energy.f readgauss.f\
+nonlin.f visu2.f solve.f solve2.f dtrsm.f dtrsm1.f
+SRC = ${my_source.f}
+OBJ = ${SRC:.f=.o}
+#
+# unix makefile instructions
+#
+$(my_executable_name):	${OBJ}
+	$(my_fortran_compiler) ${PARA} -o ${my_executable_name} ${OBJ}
+	
+#***********************************************************************
+#***********************************************************************

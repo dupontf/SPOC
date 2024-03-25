@@ -1,0 +1,42 @@
+#!/bin/sh
+
+# VARIABLES
+#==========
+
+FC1=pgf77   # fortran compiler
+FFLAGS1=-O2 # fortran compiling options
+
+# EXECUTION
+#==========
+
+make -f mi FC=${FC1} FFLAGS=${FFLAGS1}
+
+make -f mlin FC=${FC1} FFLAGS=${FFLAGS1}
+
+make -f mfs FC=${FC1} FFLAGS=${FFLAGS1}
+
+make -f mns FC=${FC1} FFLAGS=${FFLAGS1}
+
+make -f minv FC=${FC1} FFLAGS=${FFLAGS1}
+
+make -f mcfl FC=${FC1} FFLAGS=${FFLAGS1}
+
+# utilities
+
+${FC1} ${FFLAGS1} chmal.f cmal_s.o -o ../CM
+if [ -f ../CM ]
+   then
+     echo '../CM is created'
+fi
+
+${FC1} ${FFLAGS1} get_bdy.f cmal_s.o -o ../get_bdy
+if [ -f ../get_bdy ]
+   then
+     echo '../get_bdy is created'
+fi
+
+${FC1} ${FFLAGS1} get_range.f cmal_s.o -o ../get_range
+if [ -f ../get_range ]
+   then
+     echo '../get_range is created'
+fi
