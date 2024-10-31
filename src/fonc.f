@@ -3,6 +3,15 @@ c**************************************************
 c functions
 c**************************************************
 c
+      function fvagueg(x,y)
+      implicit none
+      double precision fvagueg,x,y,pi,a1,a2,a3,a4,a5
+      common /fvague/ a1,a2,a3,a4,a5
+      pi = 4.d0 * atan(1.d0)
+      fvagueg = a1 * cos( (a3*x + a4*y) * pi / a2 * 2.d0)
+      return
+      end
+c
       function fvaguex(x,y)
       implicit none
       double precision fvaguex,x,y,pi,a1,a2,a3,a4,a5

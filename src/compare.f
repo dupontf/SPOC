@@ -90,8 +90,13 @@ c------------------------------------
 c lecture du maillage
 c------------------------------------
 c
-      call read_mesh(nn,ne,in,xgr,ygr,scx,scy)
-      call pointer_mesh(nn,ne,nf,in,itm,nmit,tmit,imit,pseg,tseg)
+      call maille(nn,ne,nf,nebd,in,itm,nmit,tmit,imit,
+     1                  pseg,tseg,sbd,xgr,ygr)
+      write(*,*) nn,ne,nf
+      do i=1,nn
+	  xgr(i) = xgr(i) * scx
+	  ygr(i) = ygr(i) * scy
+      enddo
 c
 c------------------------------------
 c lecture du fichier
