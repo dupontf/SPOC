@@ -3,19 +3,23 @@
 #
 # macros
 #
-FFLAGS= -n32 -O3
-FC=f77
+FFLAGS= O2
+FC=pgf90
 
 my_fortran_compiler = ${FC} ${FFLAGS}
 my_executable_name = ../CFL
-my_source.f = check_cfl.f cfl.f cmal_s.f legendre2.f readgauss.f visu2.f
-SRC = ${my_source.f}
-OBJ = ${SRC:.f=.o}
+source_f90 = mesh.f90 legendre.f90 gauss.f90 visu2.f90 cfl.f90 check_cfl.f90
+
+OBJ2 = ${source_f90:.f90=.o}
+
+%.o: %.f90
+	$(FC) $(FFLAGS) -c $^ -o $@
+
 #
 # unix makefile instructions
 #
-$(my_executable_name):	${OBJ}
-	$(my_fortran_compiler) ${PARA} -o ${my_executable_name} ${OBJ}
+$(my_executable_name):	${OBJ2}
+	${FC} ${FFLAGS} ${PARA} -o ${my_executable_name} ${OBJ1} ${OBJ2}
 	
 #***********************************************************************
 #***********************************************************************

@@ -3,22 +3,28 @@
 #
 # macros
 #
-#FFLAGS= -n32 -O3
 FFLAGS= -O2
-FC=pgf77
+FC=pgf90
 
-my_fortran_compiler = ${FC} ${FFLAGS}
-my_executable_name = ../SPOC_LIN
-my_source.f = shwwnl.f calvar_lin.f calflu.f mat1.f calb2.f cmal_s.f \
-legendre2.f energy.f readgauss.f\
-nonlin.f visu2.f solve.f solve2.f dtrsm.f dtrsm1.f
-SRC = ${my_source.f}
-OBJ = ${SRC:.f=.o}
+my_executable_name =../SPOC_LIN
+source_f77 = fonc.f solve.f solve2.f dtrsm.f
+source_f90 = mesh.f90 legendre.f90 gauss.f90 mat.f90 nonlin.f90 visu2.f90\
+dtrsm1.f90 utilities.f90 boundary.f90 vector.f90 energy.f90 calvar_lin.f90\
+shwwnl.f90
+
+OBJ1 = ${source_f77:.f=.o}
+OBJ2 = ${source_f90:.f90=.o}
+
+COMPILE.f = $(FC) $(FFLAGS) $(TARGET_ARCH) -c
+
+%.o: %.f90
+	$(FC) $(FFLAGS) -c $^ -o $@
+
 #
 # unix makefile instructions
 #
-$(my_executable_name):	${OBJ}
-	$(my_fortran_compiler) ${PARA} -o ${my_executable_name} ${OBJ}
+$(my_executable_name):	${OBJ1} ${OBJ2}
+	${FC} ${FFLAGS} ${PARA} -o ${my_executable_name} ${OBJ1} ${OBJ2}
 	
 #***********************************************************************
 #***********************************************************************
