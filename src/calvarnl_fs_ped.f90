@@ -106,7 +106,7 @@ subroutine cal_var(u0,v0,h0,u1,v1,h1,mu0,mb0,fc,w0,z0,g0,hb,time)
 
 !
 !------------------------------------------------
-! si la cellule est au bord, rotation
+! boundary cell
 !------------------------------------------------
 !
          tk=pbdl_inv(cell)
@@ -124,14 +124,6 @@ subroutine cal_var(u0,v0,h0,u1,v1,h1,mu0,mb0,fc,w0,z0,g0,hb,time)
          do k=1,nm
           dia5(k) = 1.d0/amm0(k,k)
          enddo
-
-           jac0 = jac(:,tk)
-           jac1 = nxx(:,tk)
-           jac2 = nyy(:,tk)
-           jac11 = dnxx(:,tk)
-           jac12 = dnxy(:,tk)
-           jac21 = dnyx(:,tk)
-           jac22 = dnyy(:,tk)
 
 !------------------------------------------------
 	      gx1=0.d0
@@ -160,117 +152,12 @@ subroutine cal_var(u0,v0,h0,u1,v1,h1,mu0,mb0,fc,w0,z0,g0,hb,time)
   	   call tri_fc(cell,fbdyy,gyy,detai)
 !
 !------------------------------------------------
-!       rotation des vitesse pour que la vitesse v soit 
-!       normale a la face
 !
          call dtrsm4(nm,nm,amm0,gxx,dia5)
          call dtrsm4(nm,nm,amm0,gxy,dia5)
          call dtrsm4(nm,nm,amm0,gyx,dia5)
          call dtrsm4(nm,nm,amm0,gyy,dia5)
 
-!------------------------------------------------
-! transfo du/dx,du/dy,dv/dx,dv/dy --> dut/dx,dut/dy,dun/dx,dun/dy
-!
-         call spectoxy_c(mff1,gxx)
-         call spectoxy_c(mff2,gxy)
-         call spectoxy_c(mff3,gyx)
-         call spectoxy_c(mff4,gyy)
-
-         do j=1,ng_bd
-            utx(j) = mff1(j) * jac1(j) + mff3(j) * jac2(j)
-            unx(j) = mff1(j) * jac2(j) - mff3(j) * jac1(j)
-            uty(j) = mff2(j) * jac1(j) + mff4(j) * jac2(j)
-            uny(j) = mff2(j) * jac2(j) - mff4(j) * jac1(j)
-         enddo
-!
-! correction du aux courbures
-!
-         call spectoxy_c(mff1,uk)
-         call spectoxy_c(mff2,vk)
-         do j=1,ng_bd
-            utx(j) = utx(j) + mff1(j) * jac11(j) + mff2(j) * jac21(j)
-            unx(j) = unx(j) + mff1(j) * jac21(j) - mff2(j) * jac11(j)
-            uty(j) = uty(j) + mff1(j) * jac12(j) + mff2(j) * jac22(j)
-            uny(j) = uny(j) + mff1(j) * jac22(j) - mff2(j) * jac12(j)
-         enddo
-
-
-!------------------------------------------------
-! transfo dut/dx,dut/dy,dun/dx,dun/dy --> dun/dxt,dun/dxn,dut/dxt,dut/dxn
-!
-         do j=1,ng_bd
-            utt(j) = utx(j) * jac1(j) + uty(j) * jac2(j)
-            utn(j) = utx(j) * jac2(j) - uty(j) * jac1(j)
-            unt(j) = unx(j) * jac1(j) + uny(j) * jac2(j)
-            unn(j) = unx(j) * jac2(j) - uny(j) * jac1(j)
-         enddo
-         call xytospec_c(gtt,utt,jac0)
-         call xytospec_c(gtn,utn,jac0)
-         call xytospec_c(gnt,unt,jac0)
-         call xytospec_c(gnn,unn,jac0)
-
-!------------------------------------------------
-! resolution
-!
-         call dtrsm4(nm,nm     ,amm0,gnn,dia5)
-         call dtrsm4(nm,nm     ,amm0,gnt,dia5)
-         call dtrsm4(nm,nm     ,amm0,gtt,dia5)
-         call reduc_gn(gtn,bu)
-         call dtrsm4(nm,nm-nc-1,amm1,bu,dia4)
-         call reduc_inv_gn(gtn,bu)
-
-!------------------------------------------------
-! calcul de la vitesse dans le repere tangente-normale
-!
-         do j=1,ng_bd
-            ut(j) = mff1(j) * jac1(j) + mff2(j) * jac2(j)
-            un(j) = mff1(j) * jac2(j) - mff2(j) * jac1(j)
-         enddo
-
-!------------------------------------------------
-! transformation gtt,gtn,gnt,gnn -> gtx,gty,gnx,gny
-!
-         call spectoxy_c(utt,gtt)
-         call spectoxy_c(utn,gtn)
-         call spectoxy_c(unt,gnt)
-         call spectoxy_c(unn,gnn)
-         do j=1,ng_bd
-            utx(j) = utt(j) * jac1(j) + utn(j) * jac2(j)
-            uty(j) = utt(j) * jac2(j) - utn(j) * jac1(j)
-            unx(j) = unt(j) * jac1(j) + unn(j) * jac2(j)
-            uny(j) = unt(j) * jac2(j) - unn(j) * jac1(j)
-         enddo
-
-!------------------------------------------------
-! transformation gtx,gty,gnx,gny -> gxx,gxy,gxy,gyy
-!
-         do j=1,ng_bd
-            uxx(j) = utx(j) * jac1(j) + unx(j) * jac2(j)
-            uyx(j) = utx(j) * jac2(j) - unx(j) * jac1(j)
-            uxy(j) = uty(j) * jac1(j) + uny(j) * jac2(j)
-            uyy(j) = uty(j) * jac2(j) - uny(j) * jac1(j)
-         enddo
-!
-! correction du aux courbures
-!
-         do j=1,ng_bd
-            uxx(j) = uxx(j) + ut(j) * jac11(j) + un(j) * jac21(j)
-            uyx(j) = uyx(j) + ut(j) * jac21(j) - un(j) * jac11(j)
-            uxy(j) = uxy(j) + ut(j) * jac12(j) + un(j) * jac22(j)
-            uyy(j) = uyy(j) + ut(j) * jac22(j) - un(j) * jac12(j)
-         enddo
-
-         call xytospec_c(gxx,uxx,jac0)
-         call xytospec_c(gxy,uxy,jac0)
-         call xytospec_c(gyx,uyx,jac0)
-         call xytospec_c(gyy,uyy,jac0)
-
-!------------------------------------------------------------
-!
-         call dtrsm4(nm,nm,amm0,gxx,dia5)
-         call dtrsm4(nm,nm,amm0,gxy,dia5)
-         call dtrsm4(nm,nm,amm0,gyx,dia5)
-         call dtrsm4(nm,nm,amm0,gyy,dia5)
 
 !-------------------------------------------------
 ! cas normal sans rotation
@@ -564,10 +451,132 @@ subroutine cal_var(u0,v0,h0,u1,v1,h1,mu0,mb0,fc,w0,z0,g0,hb,time)
 !--- u,v
 !------------------------------------------------
 
-	fxx = mu0 * qxx
-	fxy = mu0 * qxy
-	fyx = mu0 * qyx
-	fyy = mu0 * qyy
+	fxx = mu0 * (qxx+qxx)
+	fxy = mu0 * (qxy+qyx)
+	fyx = mu0 * (qxy+qyx)
+	fyy = mu0 * (qyy+qyy)
+
+!------------------------------------------------
+!--- application of the free-slip condition on
+!--- the Pedlosky eddy viscous tensor
+!------------------------------------------------
+
+	do cell=1,ne
+
+         tk=pbdl_inv(cell)
+	 if (bdl(cell)) then
+
+	 amm0=amm_bd(:,:,tk)
+	 amm1=amm_bdl(:,:,tk)
+	 amm2=agx_bd(:,:,tk)
+	 amm3=agy_bd(:,:,tk)
+
+         do k=1,nm-nc-1
+          dia4(k) = 1.d0/amm1(k,k)
+         enddo
+         do k=1,nm
+          dia5(k) = 1.d0/amm0(k,k)
+         enddo
+
+           jac0 = jac(:,tk)
+           jac1 = nxx(:,tk)
+           jac2 = nyy(:,tk)
+
+!------------------------------------------------
+!
+	      gxx = fxx(:,cell)
+	      gxy = fxy(:,cell)
+	      gyx = fyx(:,cell)
+	      gyy = fyy(:,cell)
+
+
+         call spectoxy_c(mff1,gxx)
+         call spectoxy_c(mff2,gxy)
+         call spectoxy_c(mff3,gyx)
+         call spectoxy_c(mff4,gyy)
+
+!------------------------------------------------
+! transfo du/dx,du/dy,dv/dx,dv/dy --> dut/dx,dut/dy,dun/dx,dun/dy
+!
+         do j=1,ng_bd
+            utx(j) = mff1(j) * jac1(j) + mff3(j) * jac2(j)
+            unx(j) = mff1(j) * jac2(j) - mff3(j) * jac1(j)
+            uty(j) = mff2(j) * jac1(j) + mff4(j) * jac2(j)
+            uny(j) = mff2(j) * jac2(j) - mff4(j) * jac1(j)
+         enddo
+
+!------------------------------------------------
+! transfo dut/dx,dut/dy,dun/dx,dun/dy --> dun/dxt,dun/dxn,dut/dxt,dut/dxn
+!
+         do j=1,ng_bd
+            utt(j) = utx(j) * jac1(j) + uty(j) * jac2(j)
+            utn(j) = utx(j) * jac2(j) - uty(j) * jac1(j)
+            unt(j) = unx(j) * jac1(j) + uny(j) * jac2(j)
+            unn(j) = unx(j) * jac2(j) - uny(j) * jac1(j)
+         enddo
+         call xytospec_c(gtt,utt,jac0)
+         call xytospec_c(gtn,utn,jac0)
+         call xytospec_c(gnt,unt,jac0)
+         call xytospec_c(gnn,unn,jac0)
+
+!------------------------------------------------
+! resolution
+!
+         call dtrsm4(nm,nm     ,amm0,gnn,dia5)
+         call dtrsm4(nm,nm     ,amm0,gnt,dia5)
+         call dtrsm4(nm,nm     ,amm0,gtt,dia5)
+         call reduc_gn(gtn,bu)
+         call dtrsm4(nm,nm-nc-1,amm1,bu,dia4)
+         call reduc_inv_gn(gtn,bu)
+
+
+         call spectoxy_c(utt,gtt)
+         call spectoxy_c(utn,gtn)
+         call spectoxy_c(unt,gnt)
+         call spectoxy_c(unn,gnn)
+
+!------------------------------------------------
+! transformation gtt,gtn,gnt,gnn -> gtx,gty,gnx,gny
+!
+         do j=1,ng_bd
+            utx(j) = utt(j) * jac1(j) + utn(j) * jac2(j)
+            uty(j) = utt(j) * jac2(j) - utn(j) * jac1(j)
+            unx(j) = unt(j) * jac1(j) + unn(j) * jac2(j)
+            uny(j) = unt(j) * jac2(j) - unn(j) * jac1(j)
+         enddo
+
+!------------------------------------------------
+! transformation gtx,gty,gnx,gny -> gxx,gxy,gxy,gyy
+!
+         do j=1,ng_bd
+            uxx(j) = utx(j) * jac1(j) + unx(j) * jac2(j)
+            uyx(j) = utx(j) * jac2(j) - unx(j) * jac1(j)
+            uxy(j) = uty(j) * jac1(j) + uny(j) * jac2(j)
+            uyy(j) = uty(j) * jac2(j) - uny(j) * jac1(j)
+         enddo
+
+         call xytospec_c(gxx,uxx,jac0)
+         call xytospec_c(gxy,uxy,jac0)
+         call xytospec_c(gyx,uyx,jac0)
+         call xytospec_c(gyy,uyy,jac0)
+
+!------------------------------------------------------------
+!
+         call dtrsm4(nm,nm,amm0,gxx,dia5)
+         call dtrsm4(nm,nm,amm0,gxy,dia5)
+         call dtrsm4(nm,nm,amm0,gyx,dia5)
+         call dtrsm4(nm,nm,amm0,gyy,dia5)
+
+         fxx(:,cell) = gxx
+         fxy(:,cell) = gxy
+         fyx(:,cell) = gyx
+         fyy(:,cell) = gyy
+
+	 endif
+
+
+	enddo
+
 
 	call cal_flu(fbd,fxx)
 	call norm_flu(fbd,fbdxx,1)

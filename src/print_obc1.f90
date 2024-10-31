@@ -1,25 +1,31 @@
 !******************************************************************
-program print_xy
+program open_boundary_1
 
- use mesh
- 
+    use mesh
+    use boundary_condition
+    use gauss_bd
+
       implicit none
 
-      integer cell,i,j,k
-      integer nc,ng
-      integer i1,i2,i3,face,cell,tk
-      double precision ax,ay,bx,by,xof,yof,x,y,x1,y1,x2,y2,af,bf
-      double precision, allocatable :: xi(:),yi(:), &
-      coeff(:,:)
+      integer i,j,k,tk
+      integer cell,i1,i2,i3,face
+      double precision ax,bx,ay,by,&
+      xof,yof,x,y,x1,y1,x2,y2,pi,rad,c0,freq,af,bf
+      double precision g0,hh0,lx,ly
+      character*60 :: format1,format2,format3
  integer, allocatable :: pbdl_inv(:),bdl(:)
+ double precision, allocatable :: cosng(:,:),sinng(:,:)
+ double precision omega
+      double precision, allocatable :: coeff(:,:)
 
+!
 !------------------------------------
 ! read input parameter file
 !------------------------------------
-
+!
         open(2,file='oc.inp',status='old')
-        read(2,*) nc
-        read(2,*) 
+        read(2,*) nc,ng,ngf,ng_bd,ngf_bd
+        read(2,*) lx,ly
         read(2,*) 
         read(2,*) 
         read(2,*) 
@@ -27,11 +33,23 @@ program print_xy
         read(2,*) 
         read(2,*) 
         read(2,*) scx,scy
+        read(2,*) g0
+        read(2,*) hh0
         close(2)
+
+      pi=4.d0*atan(1.d0)
+      rad= lx
+      freq=2.d0 * pi /rad
+      c0 = sqrt(g0 * hh0)
+      omega = 2.d0 * pi * c0 /rad
       
+      call read_gauss_bd
+
       call read_mesh
       call pointer_mesh
       call check_mesh
+
+      call readbel
 
       allocate(bdl(ne))
       do i=1,ne
@@ -50,67 +68,47 @@ program print_xy
       call cal_pbdl_inv(bdl,pbdl_inv)
       allocate(coeff(2,nfbd))
       call readcoeff(coeff,pbdl_inv)
-      
 
 
-      ng=(nc+2)*(nc+1)/2
-      write(*,*) nc,ng
-      allocate(xi(ng),yi(ng))
-      ng=0
-      do j=0,nc
-         do i=0,nc-j
-	    ng=ng+1
-            yi(ng) = dfloat(2*j-nc)/dfloat(nc)
-            xi(ng) = dfloat(2*i-nc)/dfloat(nc)
-!	    write(*,'3(i3,1x),3x,2(f10.7,1x)') ng,i,j,xi(ng),yi(ng)
-	 enddo
-      enddo
-      
-      open(1,file='cm.xy')
-      tk=0
-      do cell=1,ne
+format1='60(e20.13,1x)'
+format2='i4,1x,2(i5,1x),3x,i1,2(1x,i5)'
+format3='4(e20.13,1x)'
 
-       i1 = in(1,cell)
-       i2 = in(2,cell)
-       i3 = in(3,cell)
-       ax = (xgr(i2)-xgr(i1))*0.5d0
-       bx = (xgr(i3)-xgr(i1))*0.5d0
-       ay = (ygr(i2)-ygr(i1))*0.5d0
-       by = (ygr(i3)-ygr(i1))*0.5d0
-       xof = xgr(i1)
-       yof = ygr(i1)
+      allocate(cosng(ngf,nobc1),sinng(ngf,nobc1))
 
-       tk = pbdl_inv(cell)
+      open(1,file='obc1.xy')
+      write(1,*) omega,0.d0
+      do i=1,nobc1
+         face=pobc1(i)
 
-       if (bdl(cell)) then
-       
+	 cell=tseg(1,face)
+         i1 = in(1,cell)
+         i2 = in(2,cell)
+         i3 = in(3,cell)
+         ax = (xgr(i2)-xgr(i1))*0.5d0
+         bx = (xgr(i3)-xgr(i1))*0.5d0
+         ay = (ygr(i2)-ygr(i1))*0.5d0
+         by = (ygr(i3)-ygr(i1))*0.5d0
+         xof = xgr(i1)
+         yof = ygr(i1)
+
+	 tk = pbdl_inv(cell)
 	 af = coeff(1,tk)
 	 bf = coeff(2,tk)
 
-        do j =1,ng
-           y1 = xi(j)
-           x1 = yi(j)
-           x2 = x1 -     bf  * 0.5d0 * (x1**2 + x1 + x1*y1 + y1)
-           y2 = y1 + (af+bf) * 0.5d0 * (x1**2 + x1 + x1*y1 + y1)
-           x = xof + ax * (x2+1.d0) + bx * (y2+1.d0)
-           y = yof + ay * (x2+1.d0) + by * (y2+1.d0)
-           write(1,*) x,y
-        enddo
-
-        else
-
-        do j =1,ng
-           y1 = xi(j)
-           x1 = yi(j)
-           x = xof + ax * (x1+1.d0) + bx * (y1+1.d0)
-           y = yof + ay * (x1+1.d0) + by * (y1+1.d0)
-           write(1,*) x,y
-        enddo
-	
-       endif
-
+           do j=1,ngf_bd
+              x1 = tif_bd(j)
+              x2 =  x1   - bf      * 0.5d0 * (x1**2 -1.d0)
+              y2 = -1.d0 + (af+bf) * 0.5d0 * (x1**2 -1.d0)
+              x = ax * (x2+1.d0) + bx * (y2+1.d0) + xof
+              y = ay * (x2+1.d0) + by * (y2+1.d0) + yof
+              cosng(j) = cos(freq * (x + y) / sqrt(2.d0) )
+              sinng(j) = sin(freq * (x + y) / sqrt(2.d0)  )
+	      write(1,*) x,y
+           enddo
       enddo
       close(1)
+      close(2)
 
       end
 

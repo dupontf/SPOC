@@ -2,20 +2,24 @@
 !
       subroutine energy(u0,v0,h0,g0,hb,ke,pe,mass)
       use mesh
+      use mesh_curved
       use gauss
+      use gauss_bd
+      use boundary_bd
       
       implicit none
       double precision u0(nm,*),v0(nm,*),h0(nm,*),hb(nm,*), &
                       g0,ke,pe,mass,&
-                      mffu(ng),mffv(ng),mffh(ng),&
-                      mff(ng),mffhb(ng),&
+                      mffu(ng_bd),mffv(ng_bd),mffh(ng_bd),&
+                      mff(ng_bd),mffhb(ng_bd),&
                       uk(nm),vk(nm),hk(nm),hbk(nm),&
                       ans,ax,ay,bx,by,deta
-      integer cell,j,k,i1,i2,i3,kc1,kc2
+      integer cell,j,i1,i2,i3,tk
 
 	ke=0.d0
 	pe=0.d0
 	mass=0.d0
+
 
 	do cell=1,ne
 
@@ -34,36 +38,66 @@
 	      hk(j) =  h0(j,cell)
 	      hbk(j)=  h0(j,cell)+hb(j,cell)
 	   enddo
+	   
+
+	      tk=pbdl_inv(cell)
+
+! *************** boundary element
+
+	   if (bdl(cell)) then
+
+              call spectoxy_c(mffu ,uk )
+              call spectoxy_c(mffv ,vk )
+              call spectoxy_c(mffh ,hk )
+              call spectoxy_c(mffhb,hbk)
+
 !
 ! variation dans la masse totale
 !
+         do j=1,nm
+            mass = mass + amm_bdo(j,1,tk) * deta * hk(j)
+         enddo
+
+! kinetic energy
+
+	 do j=1,ng_bd
+	     mff(j) = mffhb(j) * ( mffu(j) * mffu(j) + mffv(j) * mffv(j) )
+	 enddo
+         mff = mff * jac(:,tk)
+	 call inttri2c(mff,ans,1)
+	 ke = ke + ans * deta * 0.5d0
+
+
+! potential energy
+
+	 do j=1,ng_bd
+	     mff(j) = mffh(j) * mffh(j)
+	 enddo
+         mff = mff * jac(:,tk)
+	 call inttri2c(mff,ans,1)
+	 pe = pe + ans * deta * 0.5d0 * g0
+
+
+
+! ******** interior element
+
+	   else
+
+
+! variation dans la masse totale
+
 	   do j=1,nm
 	      mass = mass + ammo(j,1) * deta * hk(j)
 	   enddo
 
-	 do j=1,ng
-	     mff (j) = 0.d0
-	     mffu(j) = 0.d0
-	     mffh(j) = 0.d0
-	     mffhb(j)= 0.d0
-	     mffv(j) = 0.d0
-	 enddo
+              call spectoxy(mffu ,uk )
+              call spectoxy(mffv ,vk )
+              call spectoxy(mffh ,hk )
+              call spectoxy(mffhb,hbk)
 
-	 i1 = 0
-	 do kc1=0,nc
-	  do kc2=0,nc-kc1
-	   i1=i1+1
-	   do j=1,ng
-	     mffu(j) = mffu(j) + uk(i1) * pi2(j,i1)
-	     mffv(j) = mffv(j) + vk(i1) * pi2(j,i1)
-	     mffh(j) = mffh(j) + hk(i1) * pi2(j,i1)
-	     mffhb(j)= mffhb(j)+ hbk(i1)* pi2(j,i1)
-	   enddo
-	  enddo
-	 enddo
-!
+
 ! kinetic energy
-!
+
 	 do j=1,ng
 	     mff(j) = mffhb(j) * ( mffu(j) * mffu(j) + mffv(j) * mffv(j) )
 	 enddo
@@ -71,15 +105,17 @@
 	 call inttri2(mff,ans,1)
 	 ke = ke + ans * deta * 0.5d0
 
-!
+
 ! potential energy
-!
+
 	 do j=1,ng
 	     mff(j) = mffh(j) * mffh(j)
 	 enddo
 
 	 call inttri2(mff,ans,1)
 	 pe = pe + ans * deta * 0.5d0 * g0
+	 
+	 endif
 
 	enddo
 

@@ -10,7 +10,6 @@
 module boundary_condition
 
  use mesh
- use gauss
  
  implicit none
  
@@ -18,9 +17,6 @@ module boundary_condition
  integer, allocatable :: pobc1(:)
  integer nfp, nobc1
 
- double precision, allocatable :: cosng(:,:),sinng(:,:)
- double precision omega,ramp_period
-  
  contains
  
 !
@@ -206,106 +202,5 @@ subroutine periodic
       return
 end subroutine periodic
 
-!
-!***********************************************************************
-! open boundary condition
-!
-! the elevation is prescribed at the boundary
-!***********************************************************************
-!
-subroutine openbc1_read
-
- implicit none
-
-    integer i,j,k
-
-    if (nobc1.gt.0) then
-
-      allocate(cosng(ngf,nobc1),sinng(ngf,nobc1))
-
-      open(1,file='obc1.dat',status='old')
-      read(1,*) omega,ramp_period
-      do i=1,nobc1
-        do j=1,ngf
-	 read(1,*) cosng(j,i),sinng(j,i)
-	enddo
-      enddo
-      close(1)
-
-    endif
-
-    return
-
-end subroutine openbc1_read
-
-!
-!***********************************************************************
-! open boundary condition
-!
-! the elevation is prescribed at the boundary
-!***********************************************************************
-!
-subroutine openbc1(fbd,time,fact)
-
- implicit none
-
-      integer i,j,k,face
-      double precision fbd(ngf,*),time,phase,cosa,sina,fact,ans
-      double precision pi,per,ramp
-
-      if (nobc1.gt.0) then
-	 if (ramp_period.gt.1.d-12) then
-	  ramp = min (time,ramp_period)
-	  ramp = ramp / ramp_period
-	 else
-	  ramp=1.d0
-	 endif
-	 phase = time * omega
-	 cosa = cos(phase) * fact * ramp
-	 sina = sin(phase) * fact * ramp
-         do i=1,nobc1
-            face = pobc1(i)
- 	    do j=1,ngf
-	       fbd(j,face) = cosng(j,i) * cosa + sinng(j,i) * sina
-	    enddo
-         enddo
-      endif
-
-      return
-end subroutine openbc1
-
-!
-!***********************************************************************
-! open boundary condition
-! condition for mass conservation
-!
-!***********************************************************************
-!
-subroutine massbc(fbdx,fbdy)
-
- implicit none
-
-      integer i,j,k,face,flag
-      double precision fbdx(ngf,*),fbdy(ngf,*)
-
-      do face=1,nf
-       flag = fflag(face)
-       if (flag.eq.0) then
-        do j=1,ngf
-         fbdx(j,face) = fbdx(j,face) + fbdy(j,face)
-        enddo
-       else if (flag.eq.1) then
-        do j=1,ngf
-         fbdx(j,face) = 0.d0
-        enddo
-       else if (flag.eq.5) then
-        do j=1,ngf
-         fbdx(j,face) = fbdx(j,face) + fbdy(j,face)
-        enddo
-       endif
-      enddo
-
-      return
-end subroutine massbc
 
 end module boundary_condition

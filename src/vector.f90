@@ -8,16 +8,17 @@ subroutine cal_flu(fbdy,a0)
       use mesh
       use gauss
       use utilities
+      use gauss_bd
 
       implicit none
       double precision a0(nm,*)
-      double precision fbdy(ngf,*)
+      double precision fbdy(ngf_bd,*)
       integer i,j,k1,k2,i1
       integer cote
 
 	do i=1,nf
 
-	  do j=1,ngf
+	  do j=1,ngf_bd
 	     fbdy(j,i)=0.d0
 	  enddo
 
@@ -29,8 +30,8 @@ subroutine cal_flu(fbdy,a0)
 ! la face est sur la frontiere: seul triangle 1
 !
 	  do i1=1,nm
-	    do j=1,ngf
-	       fbdy(j,i) =  fbdy(j,i) + a0(i1,k1) * pico(j,i1,1)
+	    do j=1,ngf_bd
+	       fbdy(j,i) =  fbdy(j,i) + a0(i1,k1) * pico_bd(j,i1)
 	    enddo
 	  enddo
 
@@ -66,6 +67,48 @@ end subroutine cal_flu
 
 !
 !******************************************************************
+! multiplication de fbdy par la normal aux faces
+!******************************************************************
+!
+subroutine norm_flu(fbd,fbdy,ix)
+
+      use mesh
+      use gauss
+      use utilities
+      use gauss_bd
+      use boundary_bd
+
+      implicit none
+      double precision fbd(ngf_bd,*),fbdy(ngf_bd,*)
+      integer face,j,ix,k,facebd
+
+      k=1
+      facebd=sbd(k)
+      do face=1,nf
+	
+	 if (face.eq.facebd) then 
+	   
+	    do j=1,ngf_bd
+	      fbdy(j,face) = fbd(j,face)*normc(j,ix,k)
+	    enddo
+	    k=k+1
+            facebd=sbd(k)
+	   
+	   else
+
+	    do j=1,ngf
+	      fbdy(j,face) = fbd(j,face)*norm(ix,face)
+	    enddo
+	   
+	 endif
+	   
+      enddo
+
+      return
+end subroutine norm_flu
+
+!
+!******************************************************************
 ! Add the boundary element terms to the RHS
 !******************************************************************
 !
@@ -74,9 +117,10 @@ subroutine tri_f(tk,fbdy,b,coeff)
       use mesh
       use gauss
       use utilities
+      use gauss_bd
 
       implicit none
-      double precision b(*),fbdy(ngf,*),ans,var,coeff
+      double precision b(*),fbdy(ngf_bd,*),fbd(ngf_bd),ans,var,coeff
       integer tk,i,j,i1,k,kc1,kc2,j1
       integer isg,ns1,isg2
       double precision sig
@@ -89,12 +133,15 @@ subroutine tri_f(tk,fbdy,b,coeff)
 	 isg2= (ngf+1)*(1-isg)/2
 	 sig = dfloat(isg) * coeff *0.5d0
 
+         do j=1,ngf
+	    fbd(j) = fbdy(j,ns1) * wif(j)
+	 enddo
+
 	  do i1=1,nm
 	    ans = 0.d0
 	    do j=1,ngf
 	       j1 = isg2+isg*j
-	       var = pico(j1,i1,k) * fbdy(j,ns1)
-	       ans = ans + wif(j) * var
+	       ans = ans + pico(j1,i1,k) * fbd(j)
 	    enddo
 	    b(i1) = b(i1) + ans * sig
 	  enddo
@@ -104,6 +151,69 @@ subroutine tri_f(tk,fbdy,b,coeff)
 	return
 
 end subroutine tri_f
+
+
+!
+!******************************************************************
+! Add the boundary element terms to the RHS
+!******************************************************************
+!
+subroutine tri_fc(tk,fbdy,b,coeff)
+
+      use mesh
+      use gauss
+      use utilities
+      use gauss_bd
+
+      implicit none
+      double precision b(*),fbdy(ngf_bd,*),fbd(ngf_bd),ans,var,coeff
+      integer tk,i,j,i1,k,kc1,kc2,j1
+      integer isg,ns1,isg2
+      double precision sig
+      integer cote
+
+! ----------- curved side
+
+       k=1
+       
+	 ns1= itm(k,tk)
+	 sig = coeff *0.5d0
+	 
+	 fbd=fbdy(:,ns1) * wif_bd
+
+	  do i1=1,nm
+	    ans = 0.d0
+	    do j=1,ngf_bd
+	       ans = ans + pico_bd(j,i1) * fbd(j)
+	    enddo
+	    b(i1) = b(i1) + ans * sig
+	  enddo
+       
+	do k=2,3
+
+	 ns1= itm(k,tk)
+	 isg = its(k,tk)
+	 isg2= (ngf+1)*(1-isg)/2
+	 sig = dfloat(isg) * coeff *0.5d0
+
+         do j=1,ngf
+	    fbd(j) = fbdy(j,ns1) * wif(j)
+	 enddo
+
+	  do i1=1,nm
+	    ans = 0.d0
+	    do j=1,ngf
+	       j1 = isg2+isg*j
+	       ans = ans + pico(j1,i1,k) * fbd(j)
+	    enddo
+	    b(i1) = b(i1) + ans * sig
+	  enddo
+
+	enddo
+
+	return
+
+end subroutine tri_fc
 
 
 !
@@ -173,7 +283,8 @@ end subroutine tri_f
 ! rotation du gradient
 !
 	subroutine rot_vec(nm,gn,gt,gx,gy,dnx,dny)
-	integer nm
+	implicit none
+	integer nm,j
 	double precision gn(*),gt(*),gx(*),gy(*),dnx,dny
 
 	do j=1,nm
@@ -183,6 +294,29 @@ end subroutine tri_f
 
 	return
 	end
+
+!
+!------------------------------------------------
+! rotation du gradient dasn element courbe
+!
+	subroutine rot_vec_c(gt,gn,gx,gy,jac0,jac1,jac2)
+	use boundary_bd
+	implicit none
+	double precision gn(*),gt(*),gx(*),gy(*),dnx,dny
+	double precision mff1(ng_bd),mff2(ng_bd),&
+	                jac0(ng_bd), jac1(ng_bd), jac2(ng_bd),&
+	                ut(ng_bd), un(ng_bd)
+
+         call spectoxy_c(mff1,gx)
+         call spectoxy_c(mff2,gy)
+            ut = mff1 * jac1 + mff2 * jac2
+            un = mff1 * jac2 - mff2 * jac1
+         call xytospec_c(gt,ut,jac0)
+         call xytospec_c(gn,un,jac0)
+
+	return
+	end
+
 !******************************************************************
 !
       subroutine cal_b(b,ak,mat,coeff)

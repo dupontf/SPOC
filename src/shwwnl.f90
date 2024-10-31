@@ -10,10 +10,14 @@
 program shwater
 
  use mesh
+ use mesh_curved
  use gauss
  use graphic
  use boundary_condition
  use utilities
+ use gauss_bd
+ use boundary_bd
+ use harmonic
  
  implicit none
 
@@ -33,10 +37,11 @@ program shwater
       double precision f2,dfx,dfy,fx,fy
 
       integer i,j,k,l,i1,i2,i3,ns1
-      integer nite,ite,info,per,nper,per2,yearmax,daysmax,nitemax,npermax
+      integer nite,ite,info,per,nper,per2,nitemax,npermax
       double precision :: &
          dt,mu0,mb0,f0,beta,g0,hh0,time,ke,pe,mass,pe0, &
          lx,ly,time0,amplvent,ax,ay,bx,by,deta,detai,&
+         yearmax,daysmax,&
          dnx,dny,dis,dt6,dt3,dt2
 
       character*60 :: format1,format2,format3
@@ -47,7 +52,7 @@ program shwater
 !------------------------------------
 !
 	open(2,file='oc.inp',status='old')
-	read(2,*) nc,ng,ngf
+	read(2,*) nc,ng,ngf,ng_bd,ngf_bd
 	read(2,*) lx,ly
 	read(2,*) yearmax,daysmax,nitemax
 	read(2,*) dt
@@ -83,7 +88,7 @@ format3='i8,'' |  '',f8.2,'' |  '',i6,''  |   '',1P,E8.1,''  |   '',1P,E8.1'
       write(*,*) 'reduced gravity        (m/s2):',g0
       write(*,*) 'depth at rest          (m)   :',hh0
 
-    nite=nitemax+int(daysmax*86400.d0/dt)+int(yearmax*365.d0*86400.d0/dt)
+      nite=nitemax+nint((daysmax*86400.d0+yearmax*365.d0*86400.d0)/dt)
       per=int(nite/npermax)
       dt6=dt/6.d0
       dt3=dt/3.d0
@@ -138,16 +143,32 @@ format3='i8,'' |  '',f8.2,'' |  '',i6,''  |   '',1P,E8.1,''  |   '',1P,E8.1'
       call cal_rotnf
       call cal_its
       call calpre
-      call openbc1_read
       
+
+! ********* init of curved elements *************
+
+      call cal_pbdl_inv
+      call readcoeff
+      
+      call read_gauss_bd
+      call cal_p2_bd
+      call cal_pico_bd
+      call cal_normc
+      
+      call cal_courb_jac
+      call cal_mat_courb
+      call cal_courb_nx
+      call cal_courb_nx2
+      
+      call openbc1_read
+      call init_dft
       
 !
 !--------------------------------------------------------
 ! compute coriolis parameter
 !
       allocate(fc(nm,ne))
-      fc=0.d0
-      call coriolis(fc,f0,beta)
+      call coriolis_c(fc,f0,beta)
 
 !
 !------------------------------------
@@ -177,6 +198,7 @@ format3='i8,'' |  '',f8.2,'' |  '',i6,''  |   '',1P,E8.1,''  |   '',1P,E8.1'
       time = time0
       ite=0
       nper=0
+      call dftana(dt,time,u0,v0,h0)
 !
 !------------------------------------------
 ! compute energy and output graphic
@@ -199,7 +221,7 @@ format3='i8,'' |  '',f8.2,'' |  '',i6,''  |   '',1P,E8.1,''  |   '',1P,E8.1'
       write(*,*) 'iteration|    days   | output # |     TKE     |',&
       '     TPE'
       write(*,format1)
-      write(*,format3) ite,time/86400.d0,nper,ke,pe-pe0
+      write(*,format3) ite,time/86400.d0,nper,ke,pe
 !
 !------------------------------------
 ! start iterating in time
@@ -235,6 +257,8 @@ format3='i8,'' |  '',f8.2,'' |  '',i6,''  |   '',1P,E8.1,''  |   '',1P,E8.1'
             h0 = h0 + dt6 * (dh1+dh4) + dt3 * (dh2+dh3)  
 
 	time = time0 + dt * dfloat(ite)
+
+        call dftana(dt,time,u0,v0,h0)
 !
 !-------------------------------------------------------
 ! energy
@@ -242,7 +266,7 @@ format3='i8,'' |  '',f8.2,'' |  '',i6,''  |   '',1P,E8.1,''  |   '',1P,E8.1'
       if (mod(ite,per2).eq.0) then
          call energy(u0,v0,h0,g0,hb,ke,pe,mass)
          open(24,file='oc.energ',status='old',position='append')
-         write(24,format2) time /86400.d0,ke,pe-pe0,mass
+         write(24,format2) time /86400.d0,ke,pe,mass
          close(24)
          call testnan(ke,time)
       endif
@@ -255,7 +279,7 @@ format3='i8,'' |  '',f8.2,'' |  '',i6,''  |   '',1P,E8.1,''  |   '',1P,E8.1'
          call write_gra(u0,'u',nper)
          call write_gra(v0,'v',nper)
          call write_gra(h0,'h',nper)
-         write(*,format3) ite,time/86400.d0,nper,ke,pe-pe0
+         write(*,format3) ite,time/86400.d0,nper,ke,pe
 	   open(2,file='temp.bin',form='unformatted')
 	   write(2) time
 	   write(2) ((u0(j,i),j=1,nm),i=1,ne)
@@ -305,6 +329,9 @@ end program shwater
 	   ifin=ifin-1
 	enddo
 	if (name(ideb:ifin).eq.'nan') then
+	   write(*,*) 'j''ai un probleme!!',time /86400.d0
+	   stop
+	else if (name(ideb:ifin).eq.'-nan') then
 	   write(*,*) 'j''ai un probleme!!',time /86400.d0
 	   stop
 	endif

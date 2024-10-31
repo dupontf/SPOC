@@ -147,8 +147,10 @@ end subroutine calpre
 !
 	subroutine coriolis(fc,f0,beta)
 	implicit none
-	double precision fc(nm,*),f0,beta
+	double precision fc(nm,ne),f0,beta
 	integer cell,n1,n2,n3
+	
+	fc=0.d0
 	
 	do cell=1,ne
 	   n1 = in(1,cell)

@@ -2,6 +2,7 @@ module graphic
 
       use gauss
       use mesh
+      use mesh_curved
       
       implicit none
 
@@ -109,13 +110,13 @@ format2='(4(i6,1x))'
       integer kc1,kc2
       double precision h(nm,*),b(nm)
       double precision x,y,sol,pp
-      integer i,j,k,l,i1,i2,i3,ind,tk
+      integer cell,j,k,l,i1,i2,i3,ind,tk
       double precision ax,bx,ay,by,x1,y1,xof,yof,af,bf,x2,y2
       integer ideb,ifin
       character name*1,anum*3,fbin*8
       character*60 :: format1
 
-      format1='3(e10.3,1x)'
+      format1='3(e11.4,1x)'
       
       write(anum,'i3') nper
       ideb=1
@@ -128,13 +129,13 @@ format2='(4(i6,1x))'
 
 !	write(*,*) fbin
       open(1,file=fbin)
-      do i=1,ne
+      do cell=1,ne
          do j=1,nm
-	    b(j)=h(j,i)
+	    b(j)=h(j,cell)
 	 enddo
-         i1 = in(1,i)
-         i2 = in(2,i)
-         i3 = in(3,i)
+         i1 = in(1,cell)
+         i2 = in(2,cell)
+         i3 = in(3,cell)
          ax = (xgr(i2)-xgr(i1))*0.5d0
          bx = (xgr(i3)-xgr(i1))*0.5d0
          ay = (ygr(i2)-ygr(i1))*0.5d0
@@ -142,6 +143,30 @@ format2='(4(i6,1x))'
          xof = xgr(i1)
          yof = ygr(i1)
 
+        if (bdl(cell)) then
+	 tk = pbdl_inv(cell)
+	 af = coeff(1,tk)
+	 bf = coeff(2,tk)
+
+         do k =1,ngraph
+         do l =1,ngraph-k+1
+           y1 = dfloat(2*k-ngraph-1)/dfloat(ngraph-1)
+           x1 = dfloat(2*l-ngraph-1)/dfloat(ngraph-1)
+           x2 = x1 -     bf  * 0.5d0 * (x1**2 + x1 + x1*y1 + y1)
+           y2 = y1 + (af+bf) * 0.5d0 * (x1**2 + x1 + x1*y1 + y1)
+           x = xof + ax * (x2+1.d0) + bx * (y2+1.d0)
+           y = yof + ay * (x2+1.d0) + by * (y2+1.d0)
+           sol = 0.d0
+           do i1=1,nm
+             pp = pgraph(i1,l,k)
+             sol = sol + b(i1) * pgraph(i1,l,k)
+           enddo
+           write(1,format1) x,y,sol
+         enddo
+         enddo
+
+        else
+	
          do k =1,ngraph
          do l =1,ngraph-k+1
            y1 = dfloat(2*k-ngraph-1)/dfloat(ngraph-1)
@@ -156,6 +181,8 @@ format2='(4(i6,1x))'
            write(1,format1) x,y,sol
          enddo
          enddo
+	 
+	endif
 
       enddo
       close(1)
