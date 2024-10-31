@@ -6,9 +6,10 @@
 FFLAGS= -O2
 FC=pgf90
 
-my_executable_name =../INI
+my_executable_name =INI
 source_f77 = fonc.f solve.f solve2.f dtrsm.f
-source_f90 = mesh.f90 legendre.f90 gauss.f90 mat.f90 nonlin.f90 visu2.f90\
+source_f90 = mesh.f90 legendre.f90 gauss.f90 mat.f90 nonlin.f90\
+gauss_bd.f90 utilities.f90 boundary.f90 matcourb.f90 visu2.f90\
 dtrsm1.f90 init.f90
 
 OBJ1 = ${source_f77:.f=.o}

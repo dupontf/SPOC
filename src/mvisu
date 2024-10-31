@@ -6,14 +6,10 @@
 FFLAGS= -O2
 FC=pgf90
 
-my_executable_name =SHWW
-source_f77 = fonc.f solve.f solve2.f dtrsm.f
-source_f90 = mesh.f90 legendre.f90 gauss.f90 mat.f90 nonlin.f90\
-dtrsm1.f90 utilities.f90 boundary.f90\
-gauss_bd.f90 matcourb.f90 vector.f90 energy.f90 calvar_lin.f90 visu2.f90\
-shwwnl.f90
+my_executable_name =VISU
+source_f90 = mesh.f90 gauss.f90 legendre.f90 mesh_courb.f90 \
+utilities.f90 visu2.f90 extract_bin.f90
 
-OBJ1 = ${source_f77:.f=.o}
 OBJ2 = ${source_f90:.f90=.o}
 
 COMPILE.f = $(FC) $(FFLAGS) $(TARGET_ARCH) -c
@@ -24,8 +20,8 @@ COMPILE.f = $(FC) $(FFLAGS) $(TARGET_ARCH) -c
 #
 # unix makefile instructions
 #
-$(my_executable_name):	${OBJ1} ${OBJ2}
-	${FC} ${FFLAGS} ${PARA} -o ${my_executable_name} ${OBJ1} ${OBJ2}
+$(my_executable_name):	${OBJ2}
+	${FC} ${FFLAGS} ${PARA} -Bstatic -o ${my_executable_name} ${OBJ1} ${OBJ2}
 	
 #***********************************************************************
 #***********************************************************************
